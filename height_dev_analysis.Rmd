@@ -1,0 +1,175 @@
+---
+title: "Plant_height_Analysis"
+author: "Shawn Higdon"
+date: "11/6/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message=FALSE}
+library(tidyverse)
+library(lsmeans)
+library(cowplot)
+library(lsmeans)
+theme_set(theme_grey())
+```
+
+
+# Read in Height Data and group
+```{r}
+
+height_data <- read.csv("./201900_inoc_height_Q4_2018.csv", header = T)
+str(height_data)
+```
+
+### Subset the Data by Sample Type
+```{r}
+# subset the total raw data based on nitrogen treatment
+N10_height_data <- filter(height_data, NITROGEN == "N10")
+N100_height_data <- filter(height_data, NITROGEN == "N100")
+
+# Group the full dataset
+height_data_grouped <- group_by(height_data, NITROGEN, TRT, CODE, DPT)
+
+# group the subsets for plotting later
+height_N10_grouped <- group_by(N10_height_data, TRT, CODE, DPT)
+height_N100_grouped <- group_by(N100_height_data, TRT, CODE, DPT)
+
+```
+
+### Bar Plots
+
+#### Create Stats Functions
+```{r}
+# Creating a function that provides 95% CI for the data vector using a t-distribution
+
+conf_int95 <- function(data) {
+    n <- length(data)
+    error <- qt(0.975, df=n-1) * sd(data, na.rm = TRUE)/sqrt(n)
+    return(error)
+}
+
+# Create a function that calculates the standard error for the data
+
+std_error <- function(data) {
+  n <- length(data)
+  se <- sd(data, na.rm = TRUE)/sqrt(n)
+  return(se)
+}
+```
+
+#### Compute stats
+```{r}
+
+stat_all_height <- summarise(height_data_grouped, N=length(Height_cm), Average=mean(Height_cm, na.rm = TRUE), CI95=conf_int95(Height_cm), SE=std_error(Height_cm))
+
+stat_N10_height <- summarise(height_N10_grouped, N=length(Height_cm), Average=mean(Height_cm, na.rm = TRUE), CI95=conf_int95(Height_cm), SE=std_error(Height_cm))
+
+stat_N100_height <- summarise(height_N100_grouped, N=length(Height_cm), Average=mean(Height_cm, na.rm = TRUE), CI95=conf_int95(Height_cm), SE=std_error(Height_cm))
+```
+
+
+#### Plots
+```{r}
+# All TRT Plot
+all_height_time_bar <- ggplot(stat_all_height, aes(x = DPT, y = Average, fill = CODE))
+all_height_time_bar <- all_height_time_bar + geom_bar(stat = "identity", aes(y = Average),
+                                                      position = position_dodge())
+all_height_time_bar <- all_height_time_bar + labs(x="Days Post Transplant", y="Shoot height (cm)")
+all_height_time_bar <- all_height_time_bar + geom_errorbar(aes(ymin=Average-SE, ymax=Average+SE),
+                                                           position = position_dodge())
+all_height_time_bar <- all_height_time_bar + theme(
+  axis.text.x = element_text(size = 12),
+  #axis.ticks.x = element_blank(),
+  axis.text.y = element_text(size = 12),
+  #axis.title.x = element_blank(),
+  axis.title.y = element_text(size = 14),
+  legend.text = element_text(size = 16),
+  legend.title = element_text(size = 16))
+
+all_height_time_bar <- all_height_time_bar + facet_grid(~NITROGEN)
+all_height_time_bar
+```
+
+
+
+# Middle Reps (R3 - R6)
+```{r}
+height_data_4reps <- filter(height_data, REP != "R1" &
+                              REP != "R2" &
+                              REP != "R7")
+```
+
+### Subset the Data by Sample Type
+```{r}
+# subset the total raw data based on nitrogen treatment
+N10_height_4R_data <- filter(height_data_4reps, NITROGEN == "N10")
+N100_height_4R_data <- filter(height_data_4reps, NITROGEN == "N100")
+
+# Group the full dataset
+height_data_4R_grouped <- group_by(height_data_4reps, NITROGEN, TRT, CODE, DPT)
+
+# group the subsets for plotting later
+height_N10_4R_grouped <- group_by(N10_height_4R_data, TRT, CODE, DPT)
+height_N100_4R_grouped <- group_by(N100_height_4R_data, TRT, CODE, DPT)
+
+```
+
+#### Compute stats for 4R subset
+```{r}
+
+stat_all_4R_height <- summarise(height_data_4R_grouped, N=length(Height_cm), Average=mean(Height_cm, na.rm = TRUE), CI95=conf_int95(Height_cm), SE=std_error(Height_cm))
+
+stat_N10_4R_height <- summarise(height_N10_4R_grouped, N=length(Height_cm), Average=mean(Height_cm, na.rm = TRUE), CI95=conf_int95(Height_cm), SE=std_error(Height_cm))
+
+stat_N100_4R_height <- summarise(height_N100_4R_grouped, N=length(Height_cm), Average=mean(Height_cm, na.rm = TRUE), CI95=conf_int95(Height_cm), SE=std_error(Height_cm))
+```
+
+#### 4R Plots
+
+##### All plants
+```{r}
+# All TRT Plot
+all_height_4R_time_bar <- ggplot(stat_all_4R_height, aes(x = DPT, y = Average, fill = CODE))
+all_height_4R_time_bar <- all_height_4R_time_bar + geom_bar(stat = "identity", aes(y = Average),
+                                                      position = position_dodge())
+all_height_4R_time_bar <- all_height_4R_time_bar + labs(x="Days Post Transplant", y="Shoot height (cm)")
+all_height_4R_time_bar <- all_height_4R_time_bar + geom_errorbar(aes(ymin=Average-SE, ymax=Average+SE),
+                                                           position = position_dodge())
+all_height_4R_time_bar <- all_height_4R_time_bar + theme(
+  axis.text.x = element_text(size = 12),
+  #axis.ticks.x = element_blank(),
+  axis.text.y = element_text(size = 12),
+  #axis.title.x = element_blank(),
+  axis.title.y = element_text(size = 14),
+  legend.text = element_text(size = 16),
+  legend.title = element_text(size = 16))
+all_height_4R_time_bar <- all_height_4R_time_bar + facet_wrap(~NITROGEN)
+all_height_4R_time_bar
+```
+
+
+#### N10 plants
+```{r}
+# All TRT Plot
+all_height_4R_time_bar <- ggplot(stat_N10_4R_height, aes(x = DPT, y = Average, fill = TRT))
+all_height_4R_time_bar <- all_height_4R_time_bar + geom_bar(stat = "identity", aes(y = Average),
+                                                      position = position_dodge())
+all_height_4R_time_bar <- all_height_4R_time_bar + labs(x="Days Post Transplant", y="Shoot height (cm)")
+all_height_4R_time_bar <- all_height_4R_time_bar + geom_errorbar(aes(ymin=Average-SE, ymax=Average+SE),
+                                                           position = position_dodge())
+all_height_4R_time_bar <- all_height_4R_time_bar + theme(
+  axis.text.x = element_text(size = 12),
+  #axis.ticks.x = element_blank(),
+  axis.text.y = element_text(size = 12),
+  #axis.title.x = element_blank(),
+  axis.title.y = element_text(size = 14),
+  legend.text = element_text(size = 16),
+  legend.title = element_text(size = 16))
+all_height_4R_time_bar
+```
+
+

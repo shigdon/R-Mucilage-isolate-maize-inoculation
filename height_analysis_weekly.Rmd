@@ -1,0 +1,369 @@
+---
+title: "height_wkanalysis_weekly"
+author: "Shawn Higdon"
+date: "11/7/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message=FALSE}
+library(tidyverse)
+library(cowplot)
+library(emmeans)
+library(grid)
+theme_set(theme_grey())
+```
+
+
+# Read in Height Data and group
+```{r}
+
+height_wk_data <- read_csv("./201900_inoc_height_Q4_2018_weekly.csv", col_names = T, col_types = 'ffffffn')
+str(height_wk_data)
+```
+
+### Subset the Data by Sample Type
+```{r}
+# subset the total raw data based on nitrogen treatment
+N10_height_wk_data <- filter(height_wk_data, NITROGEN == "N10")
+N100_height_wk_data <- filter(height_wk_data, NITROGEN == "N100")
+
+# Group the full dataset
+height_wk_data_grouped <- group_by(height_wk_data, NITROGEN, TRT, CODE, DPT, Week)
+
+# group the subsets for plotting later
+height_wk_N10_grouped <- group_by(N10_height_wk_data, TRT, CODE, DPT, Week)
+height_wk_N100_grouped <- group_by(N100_height_wk_data, TRT, CODE, DPT, Week)
+
+```
+
+### Bar Plots
+
+#### Create Stats Functions
+```{r}
+# Creating a function that provides 95% CI for the data vector using a t-distribution
+
+conf_int95 <- function(data) {
+    n <- length(data)
+    error <- qt(0.975, df=n-1) * sd(data, na.rm = TRUE)/sqrt(n)
+    return(error)
+}
+
+# Create a function that calculates the standard error for the data
+
+std_error <- function(data) {
+  n <- length(data)
+  se <- sd(data, na.rm = TRUE)/sqrt(n)
+  return(se)
+}
+```
+
+#### Compute stats
+```{r}
+
+stat_wk_all_height <- summarise(height_wk_data_grouped, N=length(Height_cm), Average=mean(Height_cm, na.rm = TRUE), CI95=conf_int95(Height_cm), SE=std_error(Height_cm))
+
+stat_wk_N10_height <- summarise(height_wk_N10_grouped, N=length(Height_cm), Average=mean(Height_cm, na.rm = TRUE), CI95=conf_int95(Height_cm), SE=std_error(Height_cm))
+
+stat_wk_N100_height <- summarise(height_wk_N100_grouped, N=length(Height_cm), Average=mean(Height_cm, na.rm = TRUE), CI95=conf_int95(Height_cm), SE=std_error(Height_cm))
+```
+
+
+#### Plots
+
+##### All Reps (R1 - R7)
+```{r}
+# All TRT Plot
+all_height_wk_time_bar <- ggplot(stat_wk_all_height, aes(x = DPT, y = Average, fill = TRT))
+all_height_wk_time_bar <- all_height_wk_time_bar + geom_bar(stat = "identity", aes(y = Average),
+                                                      position = position_dodge())
+all_height_wk_time_bar <- all_height_wk_time_bar + labs(x="Days Post Transplant", y="Shoot height (cm)")
+all_height_wk_time_bar <- all_height_wk_time_bar + geom_errorbar(aes(ymin=Average-SE, ymax=Average+SE),
+                                                           position = position_dodge())
+all_height_wk_time_bar <- all_height_wk_time_bar + theme(
+  axis.text.x = element_text(size = 12),
+  #axis.ticks.x = element_blank(),
+  axis.text.y = element_text(size = 12),
+  #axis.title.x = element_blank(),
+  axis.title.y = element_text(size = 14),
+  legend.text = element_text(size = 16),
+  legend.title = element_text(size = 16))
+all_height_wk_time_bar <- all_height_wk_time_bar + facet_wrap(~NITROGEN)
+all_height_wk_time_bar
+```
+
+
+#### N10 plants
+```{r}
+# N10 TRT Plot
+
+N10_height_wk_time_bar <- ggplot(stat_wk_N10_height, aes(x = Week, y = Average, fill = TRT))
+N10_height_wk_time_bar <- N10_height_wk_time_bar + geom_bar(stat = "identity", aes(y = Average),
+                                                      position = position_dodge())
+N10_height_wk_time_bar <- N10_height_wk_time_bar + labs(list(title = "10% Nitrogen", x="Weeks Post Transplant", y="Height (cm)"))
+N10_height_wk_time_bar <- N10_height_wk_time_bar + geom_errorbar(aes(ymin=Average-SE, ymax=Average+SE),
+                                                           position = position_dodge(0.9), width = 0.5)
+N10_height_wk_time_bar <- N10_height_wk_time_bar + theme_set(theme_cowplot())
+N10_height_wk_time_bar <- N10_height_wk_time_bar + theme(
+  axis.text.x = element_text(size = 16),
+  plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
+  axis.text.y = element_text(size = 16),
+  axis.title.x = element_text(size = 18),
+  axis.title.y = element_text(size = 18),
+  legend.text = element_text(size = 16),
+  legend.title = element_text(size = 18))
+N10_height_wk_time_bar <- N10_height_wk_time_bar + scale_fill_discrete(name = "Inoculation")
+N10_height_wk_time_bar <- N10_height_wk_time_bar + scale_x_discrete(breaks = c(1, 2, 3, 4, 5, 6, 7, 8))
+N10_height_wk_time_bar <- N10_height_wk_time_bar + scale_y_continuous(expand = c(0,0),
+                                                                            limits = c(0,237.5),
+                                                                            breaks = c(25, 50, 75, 100, 125, 150, 175, 200, 225))
+N10_height_wk_time_bar
+```
+
+#### N100 plants
+```{r}
+# N100 TRT Plot
+
+N100_height_wk_time_bar <- ggplot(stat_wk_N100_height, aes(x = Week, y = Average, fill = TRT))
+N100_height_wk_time_bar <- N100_height_wk_time_bar + geom_bar(stat = "identity", aes(y = Average),
+                                                      position = position_dodge())
+N100_height_wk_time_bar <- N100_height_wk_time_bar + labs(list(title = "100% Nitrogen", x="Weeks Post Transplant", y="Height (cm)"))
+N100_height_wk_time_bar <- N100_height_wk_time_bar + geom_errorbar(aes(ymin=Average-SE, ymax=Average+SE),
+                                                           position = position_dodge(0.9), width = 0.5)
+N100_height_wk_time_bar <- N100_height_wk_time_bar + theme_set(theme_cowplot())
+N100_height_wk_time_bar <- N100_height_wk_time_bar + theme(
+  axis.text.x = element_text(size = 16),
+  plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
+  axis.text.y = element_text(size = 16),
+  axis.title.x = element_text(size = 18),
+  axis.title.y = element_text(size = 18),
+  legend.text = element_text(size = 16),
+  legend.title = element_text(size = 18))
+N100_height_wk_time_bar <- N100_height_wk_time_bar + scale_x_discrete(breaks = c(1, 2, 3, 4, 5, 6, 7, 8))
+N100_height_wk_time_bar <- N100_height_wk_time_bar + scale_y_continuous(expand = c(0,0),
+                                                                            limits = c(0,237.5),
+                                                                            breaks = c(25, 50, 75, 100, 125, 150, 175, 200, 225))
+N100_height_wk_time_bar
+```
+
+#### Cowplot Grid
+```{r}
+height_N10_N100 <- plot_grid(N10_height_wk_time_bar + theme(legend.position = "none"),
+                               N100_height_wk_time_bar + theme(legend.position = "none"),
+                               labels = c("A", "B"),
+                               align = 'vh',
+                               nrow = 1
+                               )
+
+# Extract legend from N10 Plot
+height_legend <- get_legend(N10_height_wk_time_bar + theme(legend.position = "right"))
+
+
+height_grid <- plot_grid(height_N10_N100, height_legend, rel_widths = c(3, .3))
+height_grid
+```
+
+
+
+# Middle Reps (R3 - R6)
+```{r}
+height_wk_data_4reps <- filter(height_wk_data, REP != "R1" &
+                              REP != "R2" &
+                              REP != "R7")
+str(height_wk_data_4reps)
+```
+
+## EMM Analysis - Low N
+### subset low N
+```{r}
+ht.wk.4rep.lowN <- filter(height_wk_data_4reps, NITROGEN == "N10")
+ht.wk.4rep.lowN$Week <- as.factor(ht.wk.4rep.lowN$Week)
+str(ht.wk.4rep.lowN)
+```
+
+### linear model
+```{r}
+lm_4reps <- lm(Height_cm ~ TRT + Week + TRT*Week, ht.wk.4rep.lowN)
+op = par(mfrow=c(1,2))
+plot(lm_4reps, which = c(2,3))
+par(op)
+```
+
+## Anova
+```{r}
+anova(lm_4reps)
+```
+
+### EMM
+```{r}
+lowN.ht.4rep.emm <- emmeans(lm_4reps, specs = pairwise ~ TRT|Week, type = "response")
+lowN.ht.4rep.emm
+```
+
+
+## Bar Plots
+### Subset the Data by Sample Type
+```{r}
+# subset the total raw data based on nitrogen treatment
+N10_height_wk_data <- filter(height_wk_data_4reps, NITROGEN == "N10")
+N100_height_wk_data <- filter(height_wk_data_4reps, NITROGEN == "N100")
+
+# Group the full dataset
+height_wk_data_grouped <- group_by(height_wk_data_4reps, NITROGEN, TRT, CODE, DPT, Week)
+
+# group the subsets for plotting later
+height_wk_N10_grouped <- group_by(N10_height_wk_data, TRT, CODE, DPT, Week)
+height_wk_N100_grouped <- group_by(N100_height_wk_data, TRT, CODE, DPT, Week)
+
+```
+
+#### Compute stats for 4R subset
+```{r}
+
+stat_wk_all_4R_height <- summarise(height_wk_data_grouped, N=length(Height_cm), Average=mean(Height_cm, na.rm = TRUE), CI95=conf_int95(Height_cm), SE=std_error(Height_cm))
+
+stat_wk_N10_4R_height <- summarise(height_wk_N10_grouped, N=length(Height_cm), Average=mean(Height_cm, na.rm = TRUE), CI95=conf_int95(Height_cm), SE=std_error(Height_cm))
+
+stat_wk_N100_4R_height <- summarise(height_wk_N100_grouped, N=length(Height_cm), Average=mean(Height_cm, na.rm = TRUE), CI95=conf_int95(Height_cm), SE=std_error(Height_cm))
+```
+
+#### 4R Plots
+
+##### All plants
+```{r}
+# All TRT Plot
+all_height_wk_4R_time_bar <- ggplot(stat_wk_all_4R_height, aes(x = DPT, y = Average, fill = TRT))
+all_height_wk_4R_time_bar <- all_height_wk_4R_time_bar + geom_bar(stat = "identity", aes(y = Average),
+                                                      position = position_dodge())
+all_height_wk_4R_time_bar <- all_height_wk_4R_time_bar + labs(x="Days Post Transplant", y="Shoot height (cm)")
+all_height_wk_4R_time_bar <- all_height_wk_4R_time_bar + geom_errorbar(aes(ymin=Average-SE, ymax=Average+SE),
+                                                           position = position_dodge())
+all_height_wk_4R_time_bar <- all_height_wk_4R_time_bar + theme(
+  axis.text.x = element_text(size = 12),
+  #axis.ticks.x = element_blank(),
+  axis.text.y = element_text(size = 12),
+  #axis.title.x = element_blank(),
+  axis.title.y = element_text(size = 14),
+  legend.text = element_text(size = 16),
+  legend.title = element_text(size = 16))
+all_height_wk_4R_time_bar <- all_height_wk_4R_time_bar + facet_wrap(~NITROGEN)
+all_height_wk_4R_time_bar
+```
+
+
+#### N10 plants
+```{r}
+library(ggpubr)
+# N10 TRT Plot
+
+N10_height_wk_4R_time_bar <- ggplot(stat_wk_N10_4R_height, aes(x = Week, y = Average, fill = TRT))
+N10_height_wk_4R_time_bar <- N10_height_wk_4R_time_bar + geom_bar(stat = "identity", aes(y = Average),
+                                                      position = position_dodge())
+N10_height_wk_4R_time_bar <- N10_height_wk_4R_time_bar + labs(x="Weeks Post Transplant", y="Plant Height (cm)")
+N10_height_wk_4R_time_bar <- N10_height_wk_4R_time_bar + geom_errorbar(aes(ymin=Average-SE, ymax=Average+SE),
+                                                           position = position_dodge(0.9), width = 0.5)
+
+N10_height_wk_4R_time_bar <- N10_height_wk_4R_time_bar + theme_set(theme_cowplot())
+N10_height_wk_4R_time_bar <- N10_height_wk_4R_time_bar + theme(
+  axis.text.x = element_text(size = 16),
+  plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
+  axis.text.y = element_text(size = 16),
+  axis.title.x = element_text(size = 18),
+  axis.title.y = element_text(size = 18),
+  legend.text = element_text(size = 16),
+  legend.title = element_text(size = 18, face = "bold"),
+  legend.key.size = unit(1, "cm"))
+N10_height_wk_4R_time_bar <- N10_height_wk_4R_time_bar + scale_fill_discrete(name = "Inoculation", labels =c("Mock", "BCW-201900"))
+N10_height_wk_4R_time_bar <- N10_height_wk_4R_time_bar + scale_x_discrete(breaks = c(1, 2, 3, 4, 5, 6, 7, 8))
+N10_height_wk_4R_time_bar <- N10_height_wk_4R_time_bar + scale_y_continuous(expand = c(0,0),
+                                                                            limits = c(0,245),
+                                                                            breaks = c(25, 50, 75, 100, 125, 150, 175, 200, 225))
+
+# significance table
+N10_height_wk_4R_time_label.df <- data.frame(TRT = c("201900", "201900", "201900"), Week = c(4, 7, 8), Average = c(105, 135, 226))
+
+N10_height_wk_4R_time_bar <- N10_height_wk_4R_time_bar + geom_text(data = N10_height_wk_4R_time_label.df, label = "*", size = 14)
+
+N10_height_wk_4R_time_bar <- N10_height_wk_4R_time_bar + annotate("segment", 3.55, xend = 4.45, 100, yend=100, linetype="solid", lineend="butt", angle = 90)
+
+N10_height_wk_4R_time_bar <- N10_height_wk_4R_time_bar + annotate("segment", 6.55, xend = 7.45, 132, yend=132, linetype="solid", lineend="butt", angle = 90)
+
+N10_height_wk_4R_time_bar <- N10_height_wk_4R_time_bar + annotate("segment", 7.55, xend = 8.45, 223, yend=223, linetype="solid", lineend="butt", angle = 90)
+
+N10_height_wk_4R_time_bar
+
+```
+
+#### N100 plants
+```{r}
+# N100 TRT Plot
+
+N100_height_wk_4R_time_bar <- ggplot(stat_wk_N100_4R_height, aes(x = Week, y = Average, fill = TRT))
+N100_height_wk_4R_time_bar <- N100_height_wk_4R_time_bar + geom_bar(stat = "identity", aes(y = Average),
+                                                      position = position_dodge())
+N100_height_wk_4R_time_bar <- N100_height_wk_4R_time_bar + labs(list(title = "100% Nitrogen", x="Weeks Post Transplant", y="Height (cm)"))
+N100_height_wk_4R_time_bar <- N100_height_wk_4R_time_bar + geom_errorbar(aes(ymin=Average-SE, ymax=Average+SE),
+                                                           position = position_dodge(0.9), width = 0.5)
+N100_height_wk_4R_time_bar <- N100_height_wk_4R_time_bar + theme_set(theme_cowplot())
+N100_height_wk_4R_time_bar <- N100_height_wk_4R_time_bar + theme(
+  axis.text.x = element_text(size = 16),
+  plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
+  axis.text.y = element_text(size = 16),
+  axis.title.x = element_text(size = 18),
+  axis.title.y = element_text(size = 18),
+  legend.text = element_text(size = 16),
+  legend.title = element_text(size = 18))
+N100_height_wk_4R_time_bar <- N100_height_wk_4R_time_bar + scale_x_discrete(breaks = c(1, 2, 3, 4, 5, 6, 7, 8))
+N100_height_wk_4R_time_bar <- N100_height_wk_4R_time_bar + scale_y_continuous(expand = c(0,0),
+                                                                            limits = c(0,237.5),
+                                                                            breaks = c(25, 50, 75, 100, 125, 150, 175, 200, 225))
+N100_height_wk_4R_time_bar
+```
+
+#### Cowplot Grid
+```{r}
+height_4R_N10_N100 <- plot_grid(N10_height_wk_4R_time_bar + theme(legend.position = "none"),
+                               N100_height_wk_4R_time_bar + theme(legend.position = "none"),
+                               labels = c("A", "B"),
+                               align = 'vh',
+                               nrow = 1
+                               )
+
+# Extract legend from N10 Plot
+height_4R_legend <- get_legend(N10_height_wk_4R_time_bar + theme(legend.position = "right"))
+
+
+height_4R_grid <- plot_grid(height_4R_N10_N100, height_4R_legend, rel_widths = c(3, .3))
+height_4R_grid
+```
+
+## Fig 4
+```{r}
+# import picture of corn
+
+corn_pic <- ggdraw() + draw_image("corn_pic.png")
+
+Fig4 <- plot_grid(corn_pic + theme(plot.margin = unit(c(0,0,0,0), "cm")),
+                  N10_height_wk_4R_time_bar + theme(legend.position = "bottom"),
+                  ncol = 2,
+                  nrow = 1,
+                  labels = c("A", "B"),
+                  label_size = 20,
+                  align = 'h')
+Fig4
+
+ggsave("./Plots/MS2-Fig4.pdf", Fig4, width = 16, height = 9)
+
+## save as tiff for publication
+
+ggsave("./Plots/Fig4.tiff",
+       Fig4,
+       device = "tiff",
+       dpi = 300,
+       width = 15,
+       height = 8)
+```
+
